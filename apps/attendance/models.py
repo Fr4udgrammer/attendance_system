@@ -1,6 +1,7 @@
 from django.db import models
 from django.conf import settings
 from django.utils import timezone
+import json
 
 
 class AttendanceRule(models.Model):
@@ -15,10 +16,13 @@ class AttendanceRule(models.Model):
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    effective_from = models.DateField(default=timezone.now)
+    effective_to = models.DateField(null=True, blank=True)
 
     class Meta:
         db_table = 'attendance_rules'
         verbose_name_plural = 'attendance rules'
+        ordering = ['-effective_from']
 
     def __str__(self):
         return self.name
@@ -82,3 +86,78 @@ class Attendance(models.Model):
                 self.check_out = timezone.now()
                 self.save()
         return self.check_out
+
+
+class AttendanceAuditLog(models.Model):
+    """Immutable audit trail for attendance changes."""
+
+    ACTION_CHOICES = [
+        ('create', 'Create'),
+        ('update', 'Update'),
+        ('delete', 'Delete'),
+    ]
+
+    attendance = models.ForeignKey(
+        Attendance,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='audit_logs'
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='attendance_audits'
+    )
+    action = models.CharField(max_length=10, choices=ACTION_CHOICES)
+    changes = models.JSONField()  # Stores before/after values
+    timestamp = models.DateTimeField(auto_now_add=True)
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    user_agent = models.TextField(blank=True)
+
+    class Meta:
+        db_table = 'attendance_audit_logs'
+        ordering = ['-timestamp']
+
+
+class CorrectionRequest(models.Model):
+    """Employee self-service request to correct an attendance record."""
+
+    STATUS_CHOICES = [
+        ('pending', 'Pending Approval'),
+        ('approved', 'Approved'),
+        ('rejected', 'Rejected'),
+    ]
+
+    attendance = models.ForeignKey(
+        Attendance,
+        on_delete=models.CASCADE,
+        related_name='correction_requests'
+    )
+    employee = models.ForeignKey(
+        'employees.Employee',
+        on_delete=models.CASCADE,
+        related_name='correction_requests'
+    )
+    requested_check_in = models.DateTimeField(null=True, blank=True)
+    requested_check_out = models.DateTimeField(null=True, blank=True)
+    reason = models.TextField()
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    reviewed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='reviewed_corrections'
+    )
+    review_notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'attendance_correction_requests'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"Correction: {self.employee} - {self.attendance.date}"
+

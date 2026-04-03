@@ -8,7 +8,7 @@ from django.utils import timezone
 from datetime import timedelta
 from django.db.models import Count, Q
 
-from .models import Attendance, AttendanceRule
+from .models import Attendance, AttendanceRule, CorrectionRequest, AttendanceAuditLog
 from apps.accounts.services.face_profile_service import (
     FaceRecognitionDependencyError,
     get_user_known_encodings,
@@ -19,6 +19,7 @@ from .serializers import (
     AttendanceRuleSerializer,
     CheckInSerializer,
     CheckOutSerializer,
+    CorrectionRequestSerializer,
     DashboardStatsSerializer
 )
 
@@ -53,6 +54,86 @@ class AttendanceViewSet(viewsets.ModelViewSet):
         ).select_related(
             'employee', 'employee__user', 'employee__department'
         )
+
+    def perform_create(self, serializer):
+        attendance = serializer.save()
+        AttendanceAuditLog.objects.create(
+            attendance=attendance,
+            user=self.request.user,
+            action='create',
+            changes={'after': serializer.data},
+            ip_address=self.request.META.get('REMOTE_ADDR'),
+            user_agent=self.request.META.get('HTTP_USER_AGENT', '')
+        )
+
+    def perform_update(self, serializer):
+        old_data = AttendanceSerializer(serializer.instance).data
+        attendance = serializer.save()
+        AttendanceAuditLog.objects.create(
+            attendance=attendance,
+            user=self.request.user,
+            action='update',
+            changes={'before': old_data, 'after': serializer.data},
+            ip_address=self.request.META.get('REMOTE_ADDR'),
+            user_agent=self.request.META.get('HTTP_USER_AGENT', '')
+        )
+
+
+class CorrectionRequestViewSet(viewsets.ModelViewSet):
+    """ViewSet for employee correction requests."""
+
+    queryset = CorrectionRequest.objects.all()
+    serializer_class = CorrectionRequestSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        if user.is_admin:
+            return CorrectionRequest.objects.all()
+        elif user.is_manager:
+            return CorrectionRequest.objects.filter(employee__department=user.department)
+        return CorrectionRequest.objects.filter(employee=user.employee)
+
+    @action(detail=True, methods=['post'], permission_classes=[IsAdminUser])
+    def approve(self, request, pk=None):
+        correction = self.get_object()
+        if correction.status != 'pending':
+            return Response({'error': 'Request already processed'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        attendance = correction.attendance
+        old_data = AttendanceSerializer(attendance).data
+        
+        if correction.requested_check_in:
+            attendance.check_in = correction.requested_check_in
+        if correction.requested_check_out:
+            attendance.check_out = correction.requested_check_out
+        
+        attendance.notes += f"\n[Approved Correction {correction.id}] Reason: {correction.reason}"
+        attendance.save()
+        
+        correction.status = 'approved'
+        correction.reviewed_by = request.user
+        correction.review_notes = request.data.get('review_notes', '')
+        correction.save()
+
+        AttendanceAuditLog.objects.create(
+            attendance=attendance,
+            user=request.user,
+            action='update',
+            changes={'before': old_data, 'after': AttendanceSerializer(attendance).data, 'correction_id': correction.id},
+            ip_address=request.META.get('REMOTE_ADDR')
+        )
+        
+        return Response({'status': 'approved'})
+
+    @action(detail=True, methods=['post'], permission_classes=[IsAdminUser])
+    def reject(self, request, pk=None):
+        correction = self.get_object()
+        correction.status = 'rejected'
+        correction.reviewed_by = request.user
+        correction.review_notes = request.data.get('review_notes', '')
+        correction.save()
+        return Response({'status': 'rejected'})
 
 
 class CheckInView(APIView):

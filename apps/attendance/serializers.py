@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from django.utils import timezone
 from django.conf import settings
-from .models import Attendance, AttendanceRule
+from .models import Attendance, AttendanceRule, CorrectionRequest, AttendanceAuditLog
 from apps.employees.models import Employee, Schedule, Shift
 from apps.employees.serializers import EmployeeListSerializer
 
@@ -12,7 +12,8 @@ class AttendanceRuleSerializer(serializers.ModelSerializer):
     class Meta:
         model = AttendanceRule
         fields = ['id', 'name', 'check_in_start', 'check_in_end',
-                  'check_out_start', 'check_out_end', 'late_threshold', 'is_active']
+                  'check_out_start', 'check_out_end', 'late_threshold', 'is_active',
+                  'effective_from', 'effective_to']
 
 
 class AttendanceSerializer(serializers.ModelSerializer):
@@ -29,6 +30,28 @@ class AttendanceSerializer(serializers.ModelSerializer):
                   'department', 'date', 'check_in', 'check_out',
                   'status', 'notes', 'duration', 'created_at']
         read_only_fields = ['id', 'created_at']
+
+
+class CorrectionRequestSerializer(serializers.ModelSerializer):
+    """Serializer for CorrectionRequest model."""
+
+    employee_name = serializers.CharField(source='employee.full_name', read_only=True)
+    reviewed_by_name = serializers.CharField(source='reviewed_by.get_full_name', read_only=True)
+    date = serializers.DateField(source='attendance.date', read_only=True)
+
+    class Meta:
+        model = CorrectionRequest
+        fields = ['id', 'attendance', 'employee', 'employee_name', 'date',
+                  'requested_check_in', 'requested_check_out', 'reason',
+                  'status', 'reviewed_by', 'reviewed_by_name', 'review_notes',
+                  'created_at', 'updated_at']
+        read_only_fields = ['id', 'employee', 'status', 'reviewed_by', 'created_at', 'updated_at']
+
+    def validate(self, attrs):
+        request = self.context.get('request')
+        if request and hasattr(request.user, 'employee'):
+            attrs['employee'] = request.user.employee
+        return attrs
 
 
 from channels.layers import get_channel_layer

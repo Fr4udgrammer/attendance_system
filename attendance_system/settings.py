@@ -18,18 +18,38 @@ if CONFIG_FILE.exists():
             pass
 
 # Quick-start development settings - unsuitable for production
-SECRET_KEY = os.environ.get(
-    'DJANGO_SECRET_KEY', 
-    CONFIG.get('app', {}).get('secret_key', 'django-insecure-replace-me-in-production')
-)
+SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY')
+if not SECRET_KEY and not CONFIG.get('app', {}).get('secret_key'):
+    # In production, this should fail immediately if key is missing
+    if not os.environ.get('DJANGO_DEBUG', 'False').lower() in ('true', '1', 't'):
+        raise ValueError("DJANGO_SECRET_KEY must be set in production.")
+    SECRET_KEY = 'django-insecure-replace-me-in-development'
+elif not SECRET_KEY:
+    SECRET_KEY = CONFIG.get('app', {}).get('secret_key')
+
 DEBUG = os.environ.get(
     'DJANGO_DEBUG', 
     str(CONFIG.get('app', {}).get('debug', 'False'))
 ).lower() in ('true', '1', 't')
-ALLOWED_HOSTS = os.environ.get(
-    'DJANGO_ALLOWED_HOSTS', 
-    ','.join(CONFIG.get('app', {}).get('allowed_hosts', ['*']))
-).split(',')
+
+ALLOWED_HOSTS = os.environ.get('DJANGO_ALLOWED_HOSTS', '').split(',')
+if not ALLOWED_HOSTS or ALLOWED_HOSTS == ['']:
+    ALLOWED_HOSTS = CONFIG.get('app', {}).get('allowed_hosts', [])
+
+# Security settings for production
+if not DEBUG:
+    SECURE_BROWSER_XSS_FILTER = True
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    X_FRAME_OPTIONS = 'DENY'
+    SECURE_HSTS_SECONDS = 31536000  # 1 year
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+    SECURE_SSL_REDIRECT = os.environ.get('SECURE_SSL_REDIRECT', 'True').lower() == 'true'
+    ALLOWED_HOSTS = [h for h in ALLOWED_HOSTS if h and h != '*']
+    if not ALLOWED_HOSTS:
+        raise ValueError("DJANGO_ALLOWED_HOSTS must be set in production.")
 
 # Application definition
 INSTALLED_APPS = [
@@ -54,6 +74,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -189,8 +210,65 @@ AUTHENTICATION_BACKENDS = [
 ]
 
 # Axes Configuration
-AXES_FAILURE_LIMIT = 5
-AXES_COOLOFF_TIME = 0.5  # Hours
+AXES_FAILURE_LIMIT = int(os.environ.get('AXES_FAILURE_LIMIT', 5))
+AXES_COOLOFF_TIME = float(os.environ.get('AXES_COOLOFF_TIME', 0.5))  # Hours
 AXES_LOCKOUT_TEMPLATE = None  # Returns 403 by default for API
 AXES_RESET_ON_SUCCESS = True
+
+# Logging Configuration
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '{levelname} {asctime} {module} {process:d} {thread:d} {message}',
+            'style': '{',
+        },
+        'simple': {
+            'format': '{levelname} {message}',
+            'style': '{',
+        },
+        'structured': {
+            'format': '%(asctime)s [%(levelname)s] %(name)s: %(message)s',
+        },
+    },
+    'handlers': {
+        'console': {
+            'level': 'INFO',
+            'class': 'logging.StreamHandler',
+            'formatter': 'verbose',
+        },
+        'file': {
+            'level': 'WARNING',
+            'class': 'logging.FileHandler',
+            'filename': os.environ.get('DJANGO_LOG_FILE', str(BASE_DIR / 'logs' / 'django.log')),
+            'formatter': 'verbose',
+        },
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': 'INFO',
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['console', 'file'] if not DEBUG else ['console'],
+            'level': os.environ.get('DJANGO_LOG_LEVEL', 'INFO'),
+            'propagate': False,
+        },
+        'apps': {
+            'handlers': ['console', 'file'] if not DEBUG else ['console'],
+            'level': 'DEBUG' if DEBUG else 'INFO',
+            'propagate': False,
+        },
+    },
+}
+
+# Ensure logs directory exists
+LOGS_DIR = os.path.dirname(LOGGING['handlers']['file']['filename'])
+if not os.path.exists(LOGS_DIR):
+    try:
+        os.makedirs(LOGS_DIR, exist_ok=True)
+    except OSError:
+        pass
+
 
