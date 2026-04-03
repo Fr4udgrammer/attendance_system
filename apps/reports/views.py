@@ -231,15 +231,29 @@ class MonthlySummaryView(APIView):
         else:
             end_date = timezone.datetime(year, month + 1, 1).date() - timezone.timedelta(days=1)
 
+        user = self.request.user
         records = Attendance.objects.filter(date__gte=start_date, date__lte=end_date)
+        
+        if not user.is_admin:
+            if user.is_manager:
+                records = records.filter(employee__department=user.department)
+            else:
+                records = records.filter(employee__user=user)
 
         total_days = (end_date - start_date).days + 1
         total_present = records.filter(status__in=['present', 'late']).count()
         total_late = records.filter(status='late').count()
         total_absent = records.filter(status='absent').count()
 
-        total_employees = Employee.objects.filter(status='active').count()
-        expected_total = total_employees * total_days
+        if user.is_admin or user.is_manager:
+            total_employees = Employee.objects.filter(status='active').all()
+            if user.is_manager:
+                total_employees = total_employees.filter(department=user.department)
+            total_count = total_employees.count()
+        else:
+            total_count = 1
+
+        expected_total = total_count * total_days
         avg_rate = (total_present / expected_total * 100) if expected_total > 0 else 0
 
         return Response({

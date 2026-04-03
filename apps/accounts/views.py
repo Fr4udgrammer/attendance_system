@@ -6,12 +6,15 @@ from rest_framework.views import APIView
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth import get_user_model
 from rest_framework.decorators import api_view, permission_classes
+from axes.decorators import axes_dispatch
+from django.utils.decorators import method_decorator
 
 from .serializers import UserSerializer, UserCreateSerializer
 
 User = get_user_model()
 
 
+@method_decorator(axes_dispatch, name='dispatch')
 class LoginView(APIView):
     """User login view."""
 

@@ -25,7 +25,7 @@ SECRET_KEY = os.environ.get(
 DEBUG = os.environ.get(
     'DJANGO_DEBUG', 
     str(CONFIG.get('app', {}).get('debug', 'False'))
-) == 'True'
+).lower() in ('true', '1', 't')
 ALLOWED_HOSTS = os.environ.get(
     'DJANGO_ALLOWED_HOSTS', 
     ','.join(CONFIG.get('app', {}).get('allowed_hosts', ['*']))
