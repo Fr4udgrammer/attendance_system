@@ -1,5 +1,6 @@
 # Attendance System
 ![alt text](image.png)
+![alt text](image-1.png)
 A Django-based employee attendance management application with optional face profile support.
 
 ---
