@@ -24,6 +24,7 @@ INSTALLED_APPS = [
     'corsheaders',
     'django_filters',
     'axes',
+    'channels',
     # Local apps
     'apps.accounts',
     'apps.employees',
@@ -62,13 +63,28 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'attendance_system.wsgi.application'
+ASGI_APPLICATION = 'attendance_system.asgi.application'
 
 # Database
 DATABASES = {
     'default': {
-        'ENGINE': os.environ.get('DB_ENGINE', 'django.db.backends.sqlite3'),
-        'NAME': BASE_DIR / os.environ.get('DB_NAME', 'db.sqlite3'),
+        'ENGINE': os.environ.get('DB_ENGINE', 'django.db.backends.postgresql'),
+        'NAME': os.environ.get('DB_NAME', 'attendance_db'),
+        'USER': os.environ.get('DB_USER', 'postgres'),
+        'PASSWORD': os.environ.get('DB_PASSWORD', 'postgres'),
+        'HOST': os.environ.get('DB_HOST', 'localhost'),
+        'PORT': os.environ.get('DB_PORT', '5432'),
     }
+}
+
+# Channel layer for WebSockets
+CHANNEL_LAYERS = {
+    'default': {
+        'BACKEND': 'channels_redis.core.RedisChannelLayer',
+        'CONFIG': {
+            "hosts": [(os.environ.get('REDIS_HOST', '127.0.0.1'), int(os.environ.get('REDIS_PORT', 6379)))],
+        },
+    },
 }
 
 # Password validation

@@ -62,3 +62,59 @@ class Employee(models.Model):
     @property
     def full_name(self):
         return self.user.get_full_name()
+
+
+class Shift(models.Model):
+    """Shift templates defining standard work hours."""
+
+    name = models.CharField(max_length=100)
+    start_time = models.TimeField()
+    end_time = models.TimeField()
+    grace_period = models.PositiveIntegerField(default=15, help_text="Grace period in minutes for late check-in")
+    break_duration = models.PositiveIntegerField(default=60, help_text="Unpaid break duration in minutes")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'shifts'
+
+    def __str__(self):
+        return f"{self.name} ({self.start_time.strftime('%H:%M')} - {self.end_time.strftime('%H:%M')})"
+
+    @property
+    def duration(self):
+        """Total duration of the shift in hours (excluding break)."""
+        from datetime import datetime, date, combine, timedelta
+        dummy_date = date.today()
+        start = combine(dummy_date, self.start_time)
+        end = combine(dummy_date, self.end_time)
+        if end <= start:
+            end += timedelta(days=1)
+        total_seconds = (end - start).total_seconds()
+        return (total_seconds / 3600) - (self.break_duration / 60)
+
+
+class Schedule(models.Model):
+    """Daily schedule assignments for employees."""
+
+    employee = models.ForeignKey(
+        Employee,
+        on_delete=models.CASCADE,
+        related_name='schedules'
+    )
+    shift = models.ForeignKey(
+        Shift,
+        on_delete=models.CASCADE,
+        related_name='assignments'
+    )
+    date = models.DateField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'schedules'
+        unique_together = ('employee', 'date')
+        ordering = ['-date']
+
+    def __str__(self):
+        return f"{self.employee.employee_id} - {self.date} ({self.shift.name})"
