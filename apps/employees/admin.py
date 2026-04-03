@@ -38,12 +38,24 @@ class SubstituteLogAdmin(admin.ModelAdmin):
     ordering = ['-date']
 
 
-@admin.register(Department)
+@admin.register(SchoolYear)
 class SchoolYearAdmin(admin.ModelAdmin):
     list_display = ['name', 'start_date', 'end_date', 'is_active']
     search_fields = ['name']
     list_filter = ['is_active']
     ordering = ['-start_date']
+
+
+@admin.register(Department)
+class DepartmentAdmin(admin.ModelAdmin):
+    list_display = ['name', 'code', 'head', 'employee_count', 'created_at']
+    search_fields = ['name', 'code']
+    list_filter = ['created_at']
+    ordering = ['name']
+
+    def employee_count(self, obj):
+        return obj.employees.count()
+    employee_count.short_description = 'Employees'
 
 
 @admin.register(Semester)
@@ -68,15 +80,6 @@ class ClassScheduleAdmin(admin.ModelAdmin):
     def time_slot(self, obj):
         return f"{obj.start_time.strftime('%H:%M')} - {obj.end_time.strftime('%H:%M')}"
     time_slot.short_description = 'Time'
-class DepartmentAdmin(admin.ModelAdmin):
-    list_display = ['name', 'code', 'head', 'employee_count', 'created_at']
-    search_fields = ['name', 'code']
-    list_filter = ['created_at']
-    ordering = ['name']
-
-    def employee_count(self, obj):
-        return obj.employees.count()
-    employee_count.short_description = 'Employees'
 
 
 @admin.register(Employee)
