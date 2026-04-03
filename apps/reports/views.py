@@ -265,3 +265,119 @@ class MonthlySummaryView(APIView):
             'total_absent': total_absent,
             'average_attendance_rate': round(avg_rate, 1)
         })
+
+
+class ExportDTRView(APIView):
+    """Export Daily Time Record (CSC Form No. 48) to PDF."""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        employee_id = request.query_params.get('employee_id')
+        month = int(request.query_params.get('month', timezone.now().month))
+        year = int(request.query_params.get('year', timezone.now().year))
+
+        if employee_id and (user.is_admin or user.is_manager):
+            try:
+                employee = Employee.objects.get(id=employee_id)
+                if user.is_manager and employee.department != user.department:
+                    return Response({'error': 'Unauthorized access to employee data'}, status=403)
+            except Employee.DoesNotExist:
+                return Response({'error': 'Employee not found'}, status=404)
+        else:
+            if not hasattr(user, 'employee'):
+                return Response({'error': 'Employee profile not found'}, status=400)
+            employee = user.employee
+
+        start_date = timezone.datetime(year, month, 1).date()
+        if month == 12:
+            end_date = timezone.datetime(year + 1, 1, 1).date() - timezone.timedelta(days=1)
+        else:
+            end_date = timezone.datetime(year, month + 1, 1).date() - timezone.timedelta(days=1)
+
+        attendance_records = Attendance.objects.filter(
+            employee=employee,
+            date__gte=start_date,
+            date__lte=end_date
+        ).order_by('date')
+
+        buffer = io.BytesIO()
+        doc = SimpleDocTemplate(
+            buffer,
+            pagesize=A4,
+            rightMargin=50,
+            leftMargin=50,
+            topMargin=50,
+            bottomMargin=50
+        )
+
+        elements = []
+        styles = getSampleStyleSheet()
+
+        elements.append(Paragraph("Civil Service Form No. 48", styles['Normal']))
+        elements.append(Paragraph("<b>DAILY TIME RECORD</b>", styles['Title']))
+        elements.append(Spacer(1, 10))
+        
+        elements.append(Paragraph(f"<b>NAME:</b> {employee.full_name.upper()}", styles['Normal']))
+        elements.append(Paragraph(f"For the month of: {start_date.strftime('%B %Y')}", styles['Normal']))
+        elements.append(Spacer(1, 10))
+
+        data = [
+            ['Day', 'AM Arrival', 'AM Departure', 'PM Arrival', 'PM Departure', 'Undertime']
+        ]
+
+        total_days = (end_date - start_date).days + 1
+        for day in range(1, total_days + 1):
+            curr_date = timezone.datetime(year, month, day).date()
+            record = attendance_records.filter(date=curr_date).first()
+            
+            row = [str(day)]
+            if record:
+                # Simplified DTR logic for now
+                arrival = record.check_in.strftime('%H:%M') if record.check_in else '-'
+                departure = record.check_out.strftime('%H:%M') if record.check_out else '-'
+                
+                # Split AM/PM based on 12:00
+                if record.check_in and record.check_in.hour < 12:
+                    row.append(arrival)
+                    row.append("12:00") # Dummy departure
+                else:
+                    row.append("-")
+                    row.append("-")
+                    
+                if record.check_out and record.check_out.hour >= 12:
+                    row.append("13:00") # Dummy arrival
+                    row.append(departure)
+                else:
+                    row.append("-")
+                    row.append("-")
+                
+                row.append(str(record.penalty_minutes) if record.penalty_minutes > 0 else "0")
+            else:
+                row.extend(['-', '-', '-', '-', '0'])
+            
+            data.append(row)
+
+        table = Table(data, colWidths=[30, 80, 80, 80, 80, 60])
+        table.setStyle(TableStyle([
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, -1), 9),
+        ]))
+
+        elements.append(table)
+        elements.append(Spacer(1, 20))
+        elements.append(Paragraph("I certify on my honor that the above is a true and correct report...", styles['Normal']))
+        elements.append(Spacer(1, 30))
+        elements.append(Paragraph("__________________________", styles['Normal']))
+        elements.append(Paragraph("Verified as to the prescribed office hours:", styles['Normal']))
+
+        doc.build(elements)
+        buffer.seek(0)
+        
+        response = HttpResponse(buffer.read(), content_type='application/pdf')
+        filename = f"DTR_{employee.employee_id}_{start_date.strftime('%Y_%m')}.pdf"
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        return response
