@@ -1,5 +1,7 @@
 <div align="center">
 
+NOTE: This is still under development!!!
+
 <img src="metadata/banner.png" alt="AttendanceX Banner" width="100%">
 
 # 🕒 AttendanceX
