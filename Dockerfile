@@ -12,7 +12,7 @@ RUN apt-get update && apt-get install -y \
     libpq-dev \
     libopencv-dev \
     cmake \
-    libgl1-mesa-glx \
+    libgl? \
     libglib2.0-0 \
     && rm -rf /var/lib/apt/lists/*
 
