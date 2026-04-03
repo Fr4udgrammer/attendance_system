@@ -1,0 +1,22 @@
+database:
+  engine: "django.db.backends.sqlite3"
+  name: "db.sqlite3"
+
+app:
+  name: "AttendanceX"
+  debug: true
+  secret_key: "django-insecure-change-this-in-production-xyz123"
+  allowed_hosts:
+    - "localhost"
+    - "127.0.0.1"
+
+attendance:
+  default_check_in_start: "08:00"
+  default_check_in_end: "09:00"
+  default_check_out_start: "17:00"
+  default_check_out_end: "18:00"
+  late_threshold_minutes: 15
+
+export:
+  pdf_page_size: "A4"
+  csv_encoding: "utf-8"

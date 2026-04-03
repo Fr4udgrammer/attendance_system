@@ -1,0 +1,121 @@
+{% extends 'base.html' %}
+
+{% block title %}Employees - AttendanceX{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1 class="page-title">
+        <i class="fas fa-users"></i>
+        Employees
+    </h1>
+    {% if user.is_admin or user.is_manager %}
+    <div class="page-actions">
+        <a href="/employees/add/" class="btn btn-primary">
+            <i class="fas fa-plus"></i>
+            Add Employee
+        </a>
+    </div>
+    {% endif %}
+</div>
+
+<div class="filter-bar">
+    <form method="get" class="filter-form">
+        <div class="filter-group">
+            <input type="text" name="search" placeholder="Search by name or ID..." value="{{ search }}">
+        </div>
+        <div class="filter-group">
+            <select name="status">
+                <option value="">All Status</option>
+                <option value="active" {% if status_filter == 'active' %}selected{% endif %}>Active</option>
+                <option value="inactive" {% if status_filter == 'inactive' %}selected{% endif %}>Inactive</option>
+                <option value="on_leave" {% if status_filter == 'on_leave' %}selected{% endif %}>On Leave</option>
+            </select>
+        </div>
+        <div class="filter-group">
+            <select name="department">
+                <option value="">All Departments</option>
+                {% for dept in departments %}
+                <option value="{{ dept.id }}" {% if dept_filter == dept.id|stringformat:"s" %}selected{% endif %}>{{ dept.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <button type="submit" class="btn btn-secondary">
+            <i class="fas fa-filter"></i>
+            Filter
+        </button>
+    </form>
+</div>
+
+<div class="data-card">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Employee ID</th>
+                        <th>Name</th>
+                        <th>Department</th>
+                        <th>Position</th>
+                        <th>Hire Date</th>
+                        <th>Status</th>
+                        {% if user.is_admin or user.is_manager %}
+                        <th>Actions</th>
+                        {% endif %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for emp in employees %}
+                    <tr>
+                        <td>
+                            <span class="employee-id">{{ emp.employee_id }}</span>
+                        </td>
+                        <td>
+                            <div class="employee-info">
+                                <div class="employee-avatar">
+                                    <i class="fas fa-user"></i>
+                                </div>
+                                <span>{{ emp.user.get_full_name }}</span>
+                            </div>
+                        </td>
+                        <td>{{ emp.department.name }}</td>
+                        <td>{{ emp.position }}</td>
+                        <td>{{ emp.hire_date|date:"M d, Y" }}</td>
+                        <td>
+                            <span class="status-badge status-{{ emp.status }}">
+                                {{ emp.get_status_display }}
+                            </span>
+                        </td>
+                        {% if user.is_admin or user.is_manager %}
+                        <td>
+                            <div class="action-buttons">
+                                <a href="/employees/{{ emp.pk }}/edit/" class="btn-icon" title="Edit">
+                                    <i class="fas fa-edit"></i>
+                                </a>
+                                {% if user.is_admin %}
+                                <form method="post" action="/employees/{{ emp.pk }}/delete/" style="display:inline;" onsubmit="return confirm('Are you sure you want to delete this employee?');">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn-icon btn-danger" title="Delete">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </form>
+                                {% endif %}
+                            </div>
+                        </td>
+                        {% endif %}
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="{% if user.is_admin or user.is_manager %}7{% else %}6{% endif %}" class="text-center">
+                            <div class="empty-state">
+                                <i class="fas fa-users"></i>
+                                <p>No employees found</p>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

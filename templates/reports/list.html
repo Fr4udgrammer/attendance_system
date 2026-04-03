@@ -1,0 +1,135 @@
+{% extends 'base.html' %}
+
+{% block title %}Reports - AttendanceX{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1 class="page-title">
+        <i class="fas fa-file-alt"></i>
+        Attendance Reports
+    </h1>
+</div>
+
+<div class="stats-grid stats-4">
+    <div class="stat-card stat-primary">
+        <div class="stat-icon"><i class="fas fa-clipboard-list"></i></div>
+        <div class="stat-content">
+            <span class="stat-number">{{ total }}</span>
+            <span class="stat-label">Total Records</span>
+        </div>
+    </div>
+    <div class="stat-card stat-success">
+        <div class="stat-icon"><i class="fas fa-user-check"></i></div>
+        <div class="stat-content">
+            <span class="stat-number">{{ present }}</span>
+            <span class="stat-label">Present</span>
+        </div>
+    </div>
+    <div class="stat-card stat-warning">
+        <div class="stat-icon"><i class="fas fa-user-clock"></i></div>
+        <div class="stat-content">
+            <span class="stat-number">{{ late }}</span>
+            <span class="stat-label">Late</span>
+        </div>
+    </div>
+    <div class="stat-card stat-danger">
+        <div class="stat-icon"><i class="fas fa-user-times"></i></div>
+        <div class="stat-content">
+            <span class="stat-number">{{ absent }}</span>
+            <span class="stat-label">Absent</span>
+        </div>
+    </div>
+</div>
+
+<div class="filter-bar">
+    <form method="get" class="filter-form">
+        <div class="filter-group">
+            <label>From</label>
+            <input type="date" name="from" value="{{ date_from }}">
+        </div>
+        <div class="filter-group">
+            <label>To</label>
+            <input type="date" name="to" value="{{ date_to }}">
+        </div>
+        <button type="submit" class="btn btn-secondary">
+            <i class="fas fa-filter"></i>
+            Filter
+        </button>
+    </form>
+</div>
+
+<div class="reports-grid">
+    <div class="report-card attendance-rate">
+        <h3><i class="fas fa-percentage"></i> Attendance Rate</h3>
+        <div class="rate-circle">
+            <svg viewBox="0 0 100 100">
+                <circle class="bg-circle" cx="50" cy="50" r="45"></circle>
+                <circle class="progress-circle" cx="50" cy="50" r="45" style="stroke-dasharray: {{ rate }} 283;"></circle>
+            </svg>
+            <div class="rate-value">{{ rate }}%</div>
+        </div>
+    </div>
+
+    <div class="report-card status-breakdown">
+        <h3><i class="fas fa-chart-pie"></i> Status Breakdown</h3>
+        <div class="chart-canvas-wrap">
+            <canvas id="statusChart"></canvas>
+        </div>
+    </div>
+</div>
+
+<div class="export-section">
+    <h3><i class="fas fa-download"></i> Export Reports</h3>
+    <div class="export-buttons">
+        <a href="/api/reports/export/csv/?from={{ date_from }}&to={{ date_to }}" class="btn btn-export">
+            <i class="fas fa-file-csv"></i>
+            Export CSV
+        </a>
+        <a href="/api/reports/export/pdf/?from={{ date_from }}&to={{ date_to }}" class="btn btn-export">
+            <i class="fas fa-file-pdf"></i>
+            Export PDF
+        </a>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const ctx = document.getElementById('statusChart').getContext('2d');
+new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+        labels: ['Present', 'Late', 'Absent', 'Half Day'],
+        datasets: [{
+            data: [{{ present }}, {{ late }}, {{ absent }}, {{ half_day }}],
+            backgroundColor: [
+                'rgba(16, 185, 129, 0.8)',
+                'rgba(245, 158, 11, 0.8)',
+                'rgba(239, 68, 68, 0.8)',
+                'rgba(168, 85, 247, 0.8)'
+            ],
+            borderColor: [
+                '#10b981',
+                '#f59e0b',
+                '#ef4444',
+                '#a855f7'
+            ],
+            borderWidth: 2
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: {
+                position: 'bottom',
+                labels: {
+                    color: '#9ca3af',
+                    font: { family: 'Rajdhani' }
+                }
+            }
+        }
+    }
+});
+</script>
+{% endblock %}

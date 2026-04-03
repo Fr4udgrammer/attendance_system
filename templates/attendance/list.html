@@ -1,0 +1,149 @@
+{% extends 'base.html' %}
+
+{% block title %}Attendance - AttendanceX{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1 class="page-title">
+        <i class="fas fa-calendar-check"></i>
+        Attendance Records
+    </h1>
+    <div class="page-actions">
+        <a href="/attendance/check-in-camera/" class="btn btn-primary">
+            <i class="fas fa-camera"></i>
+            Check-In (Camera)
+        </a>
+    </div>
+</div>
+
+<div class="filter-bar">
+    <form method="get" class="filter-form">
+        <div class="filter-group">
+            <label>From</label>
+            <input type="date" name="from" value="{{ date_from }}">
+        </div>
+        <div class="filter-group">
+            <label>To</label>
+            <input type="date" name="to" value="{{ date_to }}">
+        </div>
+        <div class="filter-group">
+            <label>Status</label>
+            <select name="status">
+                <option value="">All</option>
+                <option value="present" {% if status_filter == 'present' %}selected{% endif %}>Present</option>
+                <option value="late" {% if status_filter == 'late' %}selected{% endif %}>Late</option>
+                <option value="absent" {% if status_filter == 'absent' %}selected{% endif %}>Absent</option>
+                <option value="half_day" {% if status_filter == 'half_day' %}selected{% endif %}>Half Day</option>
+            </select>
+        </div>
+        <button type="submit" class="btn btn-secondary">
+            <i class="fas fa-filter"></i>
+            Filter
+        </button>
+    </form>
+</div>
+
+<div class="data-card">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Employee</th>
+                        <th>Department</th>
+                        <th>Check In</th>
+                        <th>Check Out</th>
+                        <th>Duration</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for record in records %}
+                    <tr>
+                        <td>{{ record.date|date:"M d, Y" }}</td>
+                        <td>
+                            <div class="employee-info">
+                                <div class="employee-avatar small">
+                                    <i class="fas fa-user"></i>
+                                </div>
+                                <div class="emp-details">
+                                    <span class="emp-name">{{ record.employee.user.get_full_name }}</span>
+                                    <span class="emp-id">{{ record.employee.employee_id }}</span>
+                                </div>
+                            </div>
+                        </td>
+                        <td>{{ record.employee.department.name }}</td>
+                        <td>
+                            {% if record.check_in %}
+                            {{ record.check_in|time:"H:i" }}
+                            {% else %}
+                            <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if record.check_out %}
+                            {{ record.check_out|time:"H:i" }}
+                            {% else %}
+                            <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if record.duration %}
+                            {{ record.duration }}h
+                            {% else %}
+                            <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span class="status-badge status-{{ record.status }}">
+                                {{ record.get_status_display }}
+                            </span>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7" class="text-center">
+                            <div class="empty-state">
+                                <i class="fas fa-calendar-times"></i>
+                                <p>No attendance records found</p>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+{% if records.has_other_pages %}
+<div class="pagination-container">
+    <div class="pagination">
+        <span class="step-links">
+            {% if records.has_previous %}
+                <a href="?page=1{% if date_from %}&from={{ date_from }}{% endif %}{% if date_to %}&to={{ date_to }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}" class="page-link">
+                    <i class="fas fa-angle-double-left"></i>
+                </a>
+                <a href="?page={{ records.previous_page_number }}{% if date_from %}&from={{ date_from }}{% endif %}{% if date_to %}&to={{ date_to }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}" class="page-link">
+                    <i class="fas fa-angle-left"></i>
+                </a>
+            {% endif %}
+
+            <span class="page-info">
+                Page {{ records.number }} of {{ records.paginator.num_pages }}
+            </span>
+
+            {% if records.has_next %}
+                <a href="?page={{ records.next_page_number }}{% if date_from %}&from={{ date_from }}{% endif %}{% if date_to %}&to={{ date_to }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}" class="page-link">
+                    <i class="fas fa-angle-right"></i>
+                </a>
+                <a href="?page={{ records.paginator.num_pages }}{% if date_from %}&from={{ date_from }}{% endif %}{% if date_to %}&to={{ date_to }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}" class="page-link">
+                    <i class="fas fa-angle-double-right"></i>
+                </a>
+            {% endif %}
+        </span>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

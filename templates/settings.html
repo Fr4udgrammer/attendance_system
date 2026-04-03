@@ -1,0 +1,143 @@
+{% extends 'base.html' %}
+
+{% block title %}Settings - AttendanceX{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1 class="page-title">
+        <i class="fas fa-cog"></i>
+        Settings
+    </h1>
+</div>
+
+<div class="settings-grid">
+    <div class="settings-card">
+        <div class="settings-header">
+            <h3><i class="fas fa-clock"></i> Attendance Rules</h3>
+        </div>
+        <div class="settings-body">
+            {% for rule in rules %}
+            <form method="post" class="rule-form">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="update_rule">
+                <input type="hidden" name="rule_id" value="{{ rule.id }}">
+
+                <div class="rule-header">
+                    <input type="text" name="name" value="{{ rule.name }}" class="form-input rule-name">
+                    <span class="badge {% if rule.is_active %}badge-success{% else %}badge-secondary{% endif %}">
+                        {{ rule.is_active|yesno:"Active,Inactive" }}
+                    </span>
+                </div>
+
+                <div class="rule-times">
+                    <div class="time-group">
+                        <label>Check In Start</label>
+                        <input type="time" name="check_in_start" value="{{ rule.check_in_start|time:'H:i' }}" class="form-input">
+                    </div>
+                    <div class="time-group">
+                        <label>Check In End</label>
+                        <input type="time" name="check_in_end" value="{{ rule.check_in_end|time:'H:i' }}" class="form-input">
+                    </div>
+                    <div class="time-group">
+                        <label>Check Out Start</label>
+                        <input type="time" name="check_out_start" value="{{ rule.check_out_start|time:'H:i' }}" class="form-input">
+                    </div>
+                    <div class="time-group">
+                        <label>Check Out End</label>
+                        <input type="time" name="check_out_end" value="{{ rule.check_out_end|time:'H:i' }}" class="form-input">
+                    </div>
+                </div>
+
+                <div class="rule-threshold">
+                    <label>Late Threshold (minutes)</label>
+                    <input type="number" name="late_threshold" value="{{ rule.late_threshold }}" class="form-input">
+                </div>
+
+                <div class="form-actions mt-3">
+                    <button type="submit" class="btn btn-primary btn-sm">
+                        <i class="fas fa-save"></i>
+                        Update Rule
+                    </button>
+                </div>
+            </form>
+            {% empty %}
+            <p class="text-muted">No attendance rules configured.</p>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div class="settings-card">
+        <div class="settings-header">
+            <h3><i class="fas fa-plus"></i> Add New Rule</h3>
+        </div>
+        <div class="settings-body">
+            <form method="post" class="rule-form">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="add_rule">
+
+                <div class="form-group mb-3">
+                    <label>Rule Name</label>
+                    <input type="text" name="name" required class="form-input" placeholder="e.g., Standard Hours">
+                </div>
+
+                <div class="rule-times mb-3">
+                    <div class="time-group">
+                        <label>Check In Start</label>
+                        <input type="time" name="check_in_start" value="08:00" class="form-input">
+                    </div>
+                    <div class="time-group">
+                        <label>Check In End</label>
+                        <input type="time" name="check_in_end" value="09:30" class="form-input">
+                    </div>
+                    <div class="time-group">
+                        <label>Check Out Start</label>
+                        <input type="time" name="check_out_start" value="17:00" class="form-input">
+                    </div>
+                    <div class="time-group">
+                        <label>Check Out End</label>
+                        <input type="time" name="check_out_end" value="18:30" class="form-input">
+                    </div>
+                </div>
+
+                <div class="form-group mb-3">
+                    <label>Late Threshold (minutes)</label>
+                    <input type="number" name="late_threshold" value="15" class="form-input">
+                </div>
+
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-plus"></i>
+                        Add Rule
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="settings-card system-info">
+    <div class="settings-header">
+        <h3><i class="fas fa-info-circle"></i> System Information</h3>
+    </div>
+    <div class="settings-body">
+        <div class="info-grid">
+            <div class="info-item">
+                <span class="info-label">System Version</span>
+                <span class="info-value">AttendanceX v1.0.0</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Django Version</span>
+                <span class="info-value">4.2+</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Database</span>
+                <span class="info-value">SQLite</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Timezone</span>
+                <span class="info-value">UTC</span>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

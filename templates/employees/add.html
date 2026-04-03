@@ -1,0 +1,524 @@
+{% extends 'base.html' %}
+
+{% block title %}Add Employee - AttendanceX{% endblock %}
+
+{% block extra_css %}
+<style>
+    .camera-container {
+        position: relative;
+        width: 100%;
+        max-width: 400px;
+        margin: 0 auto 20px;
+        border-radius: 12px;
+        overflow: hidden;
+        border: 2px solid var(--accent-color);
+        background: rgba(0, 0, 0, 0.2);
+    }
+    #camera-feed {
+        width: 100%;
+        height: auto;
+        display: block;
+    }
+    #photo-preview {
+        width: 100%;
+        height: auto;
+        display: none;
+    }
+    .camera-controls {
+        display: flex;
+        gap: 10px;
+        justify-content: center;
+        margin-top: 10px;
+    }
+    .status-badge {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        padding: 5px 10px;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        z-index: 10;
+    }
+    .status-active { background: #00ff88; color: #000; }
+    .status-captured { background: #00d2ff; color: #000; }
+    .capture-progress {
+        color: #00d2ff;
+        font-size: 0.95rem;
+    }
+    .quality-hints {
+        max-width: 520px;
+        margin: 0 auto;
+    }
+    .face-guide-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 5;
+    }
+    .face-guide-oval {
+        width: 40%;
+        height: 75%;
+        border: 2px dashed rgba(0, 210, 255, 0.7);
+        border-radius: 50%;
+        box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.6);
+        transition: all 0.3s ease;
+    }
+    .face-guide-oval.success {
+        border-color: #00ff88;
+        border-style: solid;
+        box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.6), 0 0 20px rgba(0, 255, 136, 0.5) inset, 0 0 20px rgba(0, 255, 136, 0.5);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1 class="page-title">
+        <i class="fas fa-user-plus"></i>
+        Add Employee
+    </h1>
+    <div class="page-actions">
+        <a href="/employees/" class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i>
+            Back
+        </a>
+    </div>
+</div>
+
+<div class="form-card">
+    <form method="post" class="futuristic-form" enctype="multipart/form-data">
+        {% csrf_token %}
+
+        <div class="form-section">
+            <h3><i class="fas fa-camera"></i> Face Registration <span id="model-status" class="badge bg-secondary ms-2 small">Loading AI...</span></h3>
+            <div class="camera-container" style="position: relative;">
+                <div id="camera-status" class="status-badge status-active">
+                    <i class="fas fa-video"></i> Live
+                </div>
+                <video id="camera-feed" autoplay playsinline muted></video>
+                <canvas id="face-overlay" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10;"></canvas>
+                <div class="face-guide-overlay" id="faceGuideOverlay">
+                    <div class="face-guide-oval" id="faceGuideOval"></div>
+                </div>
+                <img id="photo-preview" src="" alt="Captured Photo">
+                <input type="hidden" name="face_image" id="face_image_input">
+                <input type="hidden" name="face_samples" id="face_samples_input">
+            </div>
+            
+            <div id="guidance-panel" class="alert alert-info text-center mt-2 mb-2 p-2" style="font-weight: bold; transition: all 0.3s; height: 50px; display: flex; align-items: center; justify-content: center;">
+                <i class="fas fa-info-circle me-2"></i> <span id="capture-instruction">Step 1: Look straight at the camera.</span>
+            </div>
+
+            <div class="capture-progress text-center mb-2 d-flex justify-content-between align-items-center px-3">
+                <strong id="sample-count">0 / 5 samples captured</strong>
+                <div id="capture-progress-bar" class="progress flex-grow-1 ms-3" style="height: 10px;">
+                    <div class="progress-bar bg-primary" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+                </div>
+            </div>
+
+            <div class="thumbnail-strip d-flex justify-content-center gap-2 mt-3 mb-3" id="thumbnail-strip" style="min-height: 60px;">
+                <!-- Thumbnails will be injected here -->
+            </div>
+
+            <div class="camera-controls">
+                <button type="button" id="start-camera" class="btn btn-secondary btn-sm">
+                    <i class="fas fa-redo"></i> Reset Samples
+                </button>
+                <button type="button" id="capture-photo" class="btn btn-primary" disabled>
+                    <i class="fas fa-camera"></i> Capture Sample
+                </button>
+                <button type="button" id="auto-capture-toggle" class="btn btn-outline-success btn-sm active" data-bs-toggle="button" aria-pressed="true">
+                    <i class="fas fa-robot"></i> Auto-Capture
+                </button>
+            </div>
+        </div>
+
+        <div class="form-section">
+            <h3><i class="fas fa-user"></i> Personal Information</h3>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>First Name</label>
+                    <input type="text" name="first_name" required class="form-input">
+                </div>
+                <div class="form-group">
+                    <label>Last Name</label>
+                    <input type="text" name="last_name" required class="form-input">
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Email</label>
+                    <input type="email" name="email" required class="form-input">
+                </div>
+                <div class="form-group">
+                    <label>Username</label>
+                    <input type="text" name="username" required class="form-input">
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Password</label>
+                    <input type="password" name="password" required class="form-input">
+                </div>
+                <div class="form-group">
+                    <label>Role</label>
+                    <select name="role" class="form-input">
+                        <option value="employee">Employee</option>
+                        <option value="manager">Manager</option>
+                        <option value="admin">Admin</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <div class="form-section">
+            <h3><i class="fas fa-briefcase"></i> Employment Details</h3>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Employee ID</label>
+                    <input type="text" name="employee_id" required class="form-input">
+                </div>
+                <div class="form-group">
+                    <label>Department</label>
+                    <select name="department" required class="form-input">
+                        <option value="">Select Department</option>
+                        {% for dept in departments %}
+                        <option value="{{ dept.id }}">{{ dept.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Position</label>
+                    <input type="text" name="position" required class="form-input">
+                </div>
+                <div class="form-group">
+                    <label>Hire Date</label>
+                    <input type="date" name="hire_date" required class="form-input">
+                </div>
+            </div>
+        </div>
+
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary btn-lg">
+                <i class="fas fa-save"></i>
+                Create Employee
+            </button>
+        </div>
+    </form>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.js"></script>
+<script src="/static/js/face_detection.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', async () => {
+    const REQUIRED_SAMPLES = 5;
+    const captureSteps = [
+        { label: 'Front', instructions: 'Look straight at the camera.', check: pose => pose === 'front' },
+        { label: 'Left', instructions: 'Turn your head slightly to the LEFT.', check: pose => pose === 'left' },
+        { label: 'Right', instructions: 'Turn your head slightly to the RIGHT.', check: pose => pose === 'right' },
+        { label: 'Up/Down', instructions: 'Look slightly UP or DOWN.', check: pose => true }, // Simplified check
+        { label: 'Smile', instructions: 'Give a slight smile.', check: pose => true } // Simplified check
+    ];
+
+    const form = document.querySelector('.futuristic-form');
+    const video = document.getElementById('camera-feed');
+    const overlay = document.getElementById('face-overlay');
+    const photo = document.getElementById('photo-preview');
+    const captureButton = document.getElementById('capture-photo');
+    const startButton = document.getElementById('start-camera');
+    const autoCaptureToggle = document.getElementById('auto-capture-toggle');
+    
+    const faceInput = document.getElementById('face_image_input');
+    const faceSamplesInput = document.getElementById('face_samples_input');
+    const sampleCount = document.getElementById('sample-count');
+    const progressBar = document.querySelector('#capture-progress-bar .progress-bar');
+    const captureInstruction = document.getElementById('capture-instruction');
+    const guidancePanel = document.getElementById('guidance-panel');
+    const cameraStatus = document.getElementById('camera-status');
+    const faceGuideOval = document.getElementById('faceGuideOval');
+    const thumbnailStrip = document.getElementById('thumbnail-strip');
+    const modelStatus = document.getElementById('model-status');
+    
+    const canvas = document.createElement('canvas');
+    const capturedSamples = [];
+    let streamRef = null;
+    let currentStepIndex = 0;
+    
+    let isAutoCaptureEnabled = true;
+    let holdTimeStart = 0;
+    const HOLD_TIME_REQUIRED = 1500; // ms
+    let isProcessingCapture = false;
+
+    // Toggle Auto-Capture
+    autoCaptureToggle.addEventListener('click', (e) => {
+        isAutoCaptureEnabled = !autoCaptureToggle.classList.contains('active');
+        if (isAutoCaptureEnabled) {
+            autoCaptureToggle.classList.replace('btn-outline-secondary', 'btn-outline-success');
+        } else {
+            autoCaptureToggle.classList.replace('btn-outline-success', 'btn-outline-secondary');
+        }
+    });
+
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+
+    function updateUIState(state, message) {
+        if (isProcessingCapture) return;
+        
+        guidancePanel.className = `alert text-center mt-2 mb-2 p-2 ${state === 'good' ? 'alert-success' : (state === 'warning' ? 'alert-warning' : 'alert-info')}`;
+        captureInstruction.innerHTML = message;
+        
+        if (state === 'good') {
+            faceGuideOval.style.borderColor = '#00ff88';
+            captureButton.disabled = false;
+        } else if (state === 'warning') {
+            faceGuideOval.style.borderColor = '#ffc107';
+            captureButton.disabled = true;
+        } else {
+            faceGuideOval.style.borderColor = 'rgba(0, 210, 255, 0.7)';
+            captureButton.disabled = true;
+        }
+    }
+
+    function renderThumbnails() {
+        thumbnailStrip.innerHTML = '';
+        capturedSamples.forEach((src, idx) => {
+            const img = document.createElement('img');
+            img.src = src;
+            img.style.width = '60px';
+            img.style.height = '60px';
+            img.style.objectFit = 'cover';
+            img.style.borderRadius = '8px';
+            img.style.border = '2px solid #00ff88';
+            thumbnailStrip.appendChild(img);
+        });
+        
+        // Placeholder thumbnails
+        for (let i = capturedSamples.length; i < REQUIRED_SAMPLES; i++) {
+            const div = document.createElement('div');
+            div.style.width = '60px';
+            div.style.height = '60px';
+            div.style.borderRadius = '8px';
+            div.style.border = '2px dashed rgba(255,255,255,0.3)';
+            div.style.display = 'flex';
+            div.style.alignItems = 'center';
+            div.style.justifyContent = 'center';
+            div.style.color = 'rgba(255,255,255,0.3)';
+            div.innerHTML = `<i class="fas fa-user"></i>`;
+            thumbnailStrip.appendChild(div);
+        }
+    }
+
+    function updateCaptureState() {
+        renderThumbnails();
+        sampleCount.textContent = `${capturedSamples.length} / ${REQUIRED_SAMPLES} samples`;
+        progressBar.style.width = `${(capturedSamples.length / REQUIRED_SAMPLES) * 100}%`;
+        
+        if (capturedSamples.length >= REQUIRED_SAMPLES) {
+            cameraStatus.className = 'status-badge status-captured';
+            cameraStatus.innerHTML = '<i class="fas fa-check-circle"></i> Ready';
+            captureButton.style.display = 'none';
+            autoCaptureToggle.style.display = 'none';
+            faceGuideOval.className = 'face-guide-oval success';
+            guidancePanel.className = 'alert alert-success text-center mt-2 mb-2 p-2';
+            captureInstruction.innerHTML = '<i class="fas fa-check-circle"></i> All samples captured successfully!';
+            FaceDetector.stopDetection();
+            stopCamera();
+        } else {
+            currentStepIndex = capturedSamples.length;
+            updateUIState('info', captureSteps[currentStepIndex].instructions);
+        }
+    }
+
+    async function serverValidateSample(imageData) {
+        try {
+            const response = await fetch('/api/accounts/validate-face-sample/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                body: JSON.stringify({ face_image: imageData })
+            });
+            return await response.json();
+        } catch (e) {
+            console.error("Validation error:", e);
+            return { valid: false, guidance: "Server error during validation." };
+        }
+    }
+
+    async function captureCurrentFrame() {
+        if (isProcessingCapture || capturedSamples.length >= REQUIRED_SAMPLES) return;
+        
+        isProcessingCapture = true;
+        updateUIState('info', '<i class="fas fa-spinner fa-spin"></i> Validating sample...');
+        
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        canvas.getContext('2d').drawImage(video, 0, 0);
+
+        const imageData = canvas.toDataURL('image/jpeg');
+        
+        // Optional: Server validation here. If hybrid, validate on server before adding.
+        const validation = await serverValidateSample(imageData);
+        
+        if (validation.valid) {
+            capturedSamples.push(imageData);
+            
+            // Update hidden inputs
+            if (!faceInput.value) {
+                faceInput.value = imageData;
+            }
+            faceSamplesInput.value = JSON.stringify(capturedSamples);
+            
+            // Visual success cues
+            document.body.style.boxShadow = "inset 0 0 50px rgba(0,255,136,0.5)";
+            setTimeout(() => document.body.style.boxShadow = "none", 300);
+            
+            updateCaptureState();
+        } else {
+            updateUIState('warning', '<i class="fas fa-exclamation-triangle"></i> ' + (validation.guidance || "Sample rejected. Try again."));
+            setTimeout(() => {
+                isProcessingCapture = false;
+                updateCaptureState();
+            }, 3000);
+            return;
+        }
+
+        isProcessingCapture = false;
+        holdTimeStart = 0; // Reset auto-capture timer
+    }
+
+    captureButton.addEventListener('click', captureCurrentFrame);
+
+    function stopCamera() {
+        if (streamRef) {
+            streamRef.getTracks().forEach(track => track.stop());
+            streamRef = null;
+        }
+    }
+
+    async function startCamera() {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+            streamRef = stream;
+            video.srcObject = stream;
+            video.style.display = 'block';
+            photo.style.display = 'none';
+            captureButton.style.display = 'inline-block';
+            autoCaptureToggle.style.display = 'inline-block';
+            cameraStatus.className = 'status-badge status-active';
+            cameraStatus.innerHTML = '<i class="fas fa-video"></i> Live';
+            
+            // Wait for video to actually start playing before checking dimensions
+            video.onloadeddata = async () => {
+                if (!FaceDetector.modelsLoaded) {
+                    modelStatus.textContent = "Loading AI...";
+                    modelStatus.className = "badge bg-warning text-dark ms-2 small";
+                    const isLoaded = await FaceDetector.init(video, overlay);
+                    if (isLoaded) {
+                        modelStatus.textContent = "AI Ready";
+                        modelStatus.className = "badge bg-success ms-2 small";
+                        
+                        FaceDetector.startDetection((result, analysis) => {
+                            if (isProcessingCapture || capturedSamples.length >= REQUIRED_SAMPLES) return;
+                            
+                            const stepInfo = captureSteps[currentStepIndex];
+                            let isValidPose = stepInfo.check(analysis.pose);
+                            
+                            if (!analysis.isCentered) {
+                                updateUIState('warning', 'Please center your face in the frame.');
+                                holdTimeStart = 0;
+                            } else if (!analysis.isGoodSize) {
+                                updateUIState('warning', 'Move slightly closer to the camera.');
+                                holdTimeStart = 0;
+                            } else if (!isValidPose) {
+                                updateUIState('info', stepInfo.instructions);
+                                holdTimeStart = 0;
+                            } else {
+                                if (holdTimeStart === 0) {
+                                    holdTimeStart = Date.now();
+                                }
+                                
+                                const holdDuration = Date.now() - holdTimeStart;
+                                const holdRemaining = HOLD_TIME_REQUIRED - holdDuration;
+                                
+                                if (holdRemaining > 0) {
+                                    let dots = ".".repeat(Math.ceil(holdDuration / 500));
+                                    updateUIState('good', `Hold position${dots}`);
+                                } else {
+                                    if (isAutoCaptureEnabled) {
+                                        captureCurrentFrame();
+                                    } else {
+                                        updateUIState('good', 'Perfect! Click Capture.');
+                                    }
+                                }
+                            }
+                        });
+                        FaceDetector.onFaceLost = () => {
+                            if (isProcessingCapture || capturedSamples.length >= REQUIRED_SAMPLES) return;
+                            holdTimeStart = 0;
+                            updateUIState('warning', 'Face not detected. Please look at the camera.');
+                        };
+                    } else {
+                        modelStatus.textContent = "AI Failed";
+                        modelStatus.className = "badge bg-danger ms-2 small";
+                    }
+                } else {
+                    FaceDetector.startDetection();
+                }
+            };
+
+        } catch (err) {
+            console.error("Error accessing camera: ", err);
+            alert("Unable to access camera. Please check permissions.");
+        }
+    }
+
+    startButton.addEventListener('click', async () => {
+        capturedSamples.length = 0;
+        currentStepIndex = 0;
+        faceInput.value = '';
+        faceSamplesInput.value = '[]';
+        photo.src = '';
+        photo.style.display = 'none';
+        faceGuideOval.className = 'face-guide-oval';
+        FaceDetector.stopDetection();
+        stopCamera();
+        updateCaptureState();
+        await startCamera();
+    });
+
+    form.addEventListener('submit', (event) => {
+        if (capturedSamples.length < REQUIRED_SAMPLES) {
+            event.preventDefault();
+            alert(`Capture all ${REQUIRED_SAMPLES} guided face samples before creating the employee profile.`);
+        }
+    });
+
+    updateCaptureState();
+    startCamera();
+});
+</script>
+{% endblock %}
