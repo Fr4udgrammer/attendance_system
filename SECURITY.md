@@ -15,7 +15,7 @@ We take the security of the Attendance System seriously. If you believe you have
 
 ### How to Report
 
-Please **do not** report security vulnerabilities via public GitHub issues. Instead, send an email to **security@example.com** with the following details:
+Please **do not** report security vulnerabilities via public GitHub issues. Instead, send an email to **mendozaryan640@gmail.com** with the following details:
 
 - A description of the vulnerability and its potential impact.
 - Steps to reproduce the issue (and any proof-of-concept code, if available).

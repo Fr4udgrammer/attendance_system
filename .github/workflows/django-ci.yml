@@ -1,0 +1,64 @@
+name: Python Quality Gates
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_DB: attendance_db
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+    - name: Lint with flake8
+      run: |
+        flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+        flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+    - name: Check Migrations
+      run: |
+        python manage.py makemigrations --check --dry-run
+      env:
+        DB_ENGINE: django.db.backends.sqlite3
+        DB_NAME: :memory:
+        DJANGO_SECRET_KEY: ci-secret-key
+    - name: Run Tests
+      run: |
+        pytest
+      env:
+        DB_ENGINE: django.db.backends.sqlite3
+        DB_NAME: :memory:
+        DJANGO_SECRET_KEY: ci-secret-key
+        DJANGO_DEBUG: "True"
