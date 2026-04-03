@@ -151,5 +151,5 @@ attendance_system/
 ---
 
 <div align="center">
-Made with ❤️ by the AttendanceX Team
+Made with ❤️ by Ryan Gwapo🤣
 </div>
