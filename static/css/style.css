@@ -1188,6 +1188,13 @@ textarea.form-input {
 @media (max-width: 768px) {
     .sidebar {
         transform: translateX(-100%);
+        width: 240px;
+        position: fixed;
+        z-index: 1100;
+        top: 0;
+        left: 0;
+        height: 100vh;
+        transition: transform 0.3s ease;
     }
 
     .sidebar.open {
@@ -1196,7 +1203,76 @@ textarea.form-input {
 
     .main-content {
         margin-left: 0;
+        transition: none;
     }
+
+    .top-bar {
+        padding: 0 15px;
+        height: 60px;
+    }
+
+    .top-bar-left {
+        gap: 12px;
+    }
+
+    .top-bar-right {
+        gap: 10px;
+    }
+
+    .sidebar-toggle {
+        display: inline-flex;
+    }
+
+    .sidebar-footer,
+    .sidebar-header,
+    .sidebar-nav {
+        padding: 15px;
+    }
+
+    .content-wrapper {
+        padding: 18px;
+    }
+
+    .dashboard-grid,
+    .stats-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .page-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+    }
+
+    .page-title {
+        font-size: 1.4rem;
+    }
+
+    .notification {
+        top: auto;
+        bottom: 20px;
+        right: 15px;
+        left: 15px;
+    }
+}
+
+/* Mobile overlay to close sidebar */
+.sidebar-backdrop {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+    z-index: 1050;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.2s ease, visibility 0.2s ease;
+}
+
+.sidebar-backdrop.open {
+    opacity: 1;
+    visibility: visible;
+}
+
 
     .stats-grid {
         grid-template-columns: repeat(2, 1fr);

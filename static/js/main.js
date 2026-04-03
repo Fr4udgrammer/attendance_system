@@ -23,13 +23,49 @@ function initSidebar() {
     const sidebar = document.getElementById('sidebar');
     const mainContent = document.getElementById('mainContent');
     const sidebarToggle = document.getElementById('sidebarToggle');
+    let backdrop = document.getElementById('sidebarBackdrop');
+
+    if (!backdrop) {
+        backdrop = document.createElement('div');
+        backdrop.id = 'sidebarBackdrop';
+        backdrop.className = 'sidebar-backdrop';
+        document.body.appendChild(backdrop);
+    }
+
+    const openSidebar = () => {
+        sidebar.classList.add('open');
+        backdrop.classList.add('open');
+    };
+
+    const closeSidebar = () => {
+        sidebar.classList.remove('open');
+        backdrop.classList.remove('open');
+    };
 
     if (sidebarToggle) {
         sidebarToggle.addEventListener('click', function() {
-            sidebar.classList.toggle('collapsed');
-            mainContent.classList.toggle('expanded');
+            if (window.innerWidth <= 768) {
+                if (sidebar.classList.contains('open')) {
+                    closeSidebar();
+                } else {
+                    openSidebar();
+                }
+            } else {
+                sidebar.classList.toggle('collapsed');
+                mainContent.classList.toggle('expanded');
+            }
         });
     }
+
+    backdrop.addEventListener('click', closeSidebar);
+
+    window.addEventListener('resize', function() {
+        if (window.innerWidth > 768) {
+            closeSidebar();
+            sidebar.classList.remove('collapsed');
+            mainContent.classList.remove('expanded');
+        }
+    });
 }
 
 function initClock() {

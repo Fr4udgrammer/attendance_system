@@ -10,6 +10,8 @@ A Django-based employee attendance management application with optional face pro
 - Reports (attendance history and summaries)
 - User login + admin interface
 - Django templates, static JS/CSS for UI
+- Responsive web UI (mobile/tablet/desktop) with collapsible sidebar and mobile overlay support
+
 
 ## 🧩 Prerequisites
 
