@@ -2,6 +2,10 @@
 
 A Django-based employee attendance management application with optional face profile support.
 
+---
+📖 **[View System Manual](SYSTEM_MANUAL.md)**
+---
+
 ## 🚀 Key Features
 
 - Employee management (CRUD)
