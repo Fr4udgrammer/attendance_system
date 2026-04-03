@@ -25,9 +25,16 @@ class AttendanceReportView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
+        user = request.user
         queryset = Attendance.objects.select_related(
             'employee', 'employee__user', 'employee__department'
-        ).all()
+        )
+
+        if not user.is_admin:
+            if user.is_manager:
+                queryset = queryset.filter(employee__department=user.department)
+            else:
+                queryset = queryset.filter(employee__user=user)
 
         start_date = request.query_params.get('from') or request.query_params.get('start_date')
         end_date = request.query_params.get('to') or request.query_params.get('end_date')
@@ -71,6 +78,17 @@ class ExportCSVView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
+        user = request.user
+        queryset = Attendance.objects.select_related(
+            'employee', 'employee__user', 'employee__department'
+        )
+
+        if not user.is_admin:
+            if user.is_manager:
+                queryset = queryset.filter(employee__department=user.department)
+            else:
+                queryset = queryset.filter(employee__user=user)
+
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = 'attachment; filename="attendance_report.csv"'
 
@@ -79,10 +97,6 @@ class ExportCSVView(APIView):
             'Employee ID', 'Name', 'Department', 'Date',
             'Check In', 'Check Out', 'Status', 'Notes'
         ])
-
-        queryset = Attendance.objects.select_related(
-            'employee', 'employee__user', 'employee__department'
-        ).all()
 
         start_date = request.query_params.get('start_date') or request.query_params.get('from')
         end_date = request.query_params.get('end_date') or request.query_params.get('to')
@@ -137,9 +151,16 @@ class ExportPDFView(APIView):
         elements.append(Paragraph("Attendance Report", title_style))
         elements.append(Spacer(1, 20))
 
+        user = request.user
         queryset = Attendance.objects.select_related(
             'employee', 'employee__user', 'employee__department'
-        ).all()
+        )
+
+        if not user.is_admin:
+            if user.is_manager:
+                queryset = queryset.filter(employee__department=user.department)
+            else:
+                queryset = queryset.filter(employee__user=user)
 
         start_date = request.query_params.get('start_date') or request.query_params.get('from')
         end_date = request.query_params.get('end_date') or request.query_params.get('to')
@@ -193,8 +214,16 @@ class MonthlySummaryView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        year = int(request.query_params.get('year', timezone.now().year))
-        month = int(request.query_params.get('month', timezone.now().month))
+        try:
+            year = int(request.query_params.get('year', timezone.now().year))
+            month = int(request.query_params.get('month', timezone.now().month))
+            
+            if not (1 <= month <= 12):
+                raise ValueError("Month must be between 1 and 12")
+            if not (2000 <= year <= 2100):
+                raise ValueError("Year must be between 2000 and 2100")
+        except (ValueError, TypeError) as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
         start_date = timezone.datetime(year, month, 1).date()
         if month == 12:

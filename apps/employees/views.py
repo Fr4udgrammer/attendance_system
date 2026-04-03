@@ -24,8 +24,11 @@ class DepartmentViewSet(viewsets.ModelViewSet):
     ordering_fields = ['name', 'code', 'created_at']
 
     def get_queryset(self):
-        if self.request.user.is_manager:
+        user = self.request.user
+        if user.is_admin:
             return Department.objects.all()
+        if user.is_manager and user.department:
+            return Department.objects.filter(id=user.department.id)
         return Department.objects.none()
 
 

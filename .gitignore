@@ -1,2 +1,11 @@
 /.claude
 /.idea
+*.pyc
+__pycache__/
+.venv*/
+.env
+db.sqlite3
+config.yaml
+media/
+static/
+.vscode/

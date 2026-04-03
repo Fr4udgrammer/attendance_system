@@ -4,18 +4,12 @@ Django settings for attendance_system project.
 import os
 from pathlib import Path
 
-import yaml
-
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# Load configuration from config.yaml
-CONFIG_PATH = BASE_DIR / 'config.yaml'
-with open(CONFIG_PATH, 'r') as f:
-    config = yaml.safe_load(f)
-
-SECRET_KEY = config['app']['secret_key']
-DEBUG = config['app']['debug']
-ALLOWED_HOSTS = config['app']['allowed_hosts']
+# Quick-start development settings - unsuitable for production
+SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'django-insecure-replace-me-in-production')
+DEBUG = os.environ.get('DJANGO_DEBUG', 'False') == 'True'
+ALLOWED_HOSTS = os.environ.get('DJANGO_ALLOWED_HOSTS', '*').split(',')
 
 # Application definition
 INSTALLED_APPS = [
@@ -29,6 +23,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'corsheaders',
     'django_filters',
+    'axes',
     # Local apps
     'apps.accounts',
     'apps.employees',
@@ -45,6 +40,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'axes.middleware.AxesMiddleware',
 ]
 
 ROOT_URLCONF = 'attendance_system.urls'
@@ -70,8 +66,8 @@ WSGI_APPLICATION = 'attendance_system.wsgi.application'
 # Database
 DATABASES = {
     'default': {
-        'ENGINE': config['database']['engine'],
-        'NAME': BASE_DIR / config['database']['name'],
+        'ENGINE': os.environ.get('DB_ENGINE', 'django.db.backends.sqlite3'),
+        'NAME': BASE_DIR / os.environ.get('DB_NAME', 'db.sqlite3'),
     }
 }
 
@@ -132,5 +128,21 @@ CORS_ALLOWED_ORIGINS = [
     'http://127.0.0.1:8000',
 ]
 
-# Attendance settings from config
-ATTENDANCE_CONFIG = config.get('attendance', {})
+# Attendance settings
+ATTENDANCE_CONFIG = {
+    'grace_period': int(os.environ.get('ATTENDANCE_GRACE_PERIOD', 15)),
+    'late_limit': int(os.environ.get('ATTENDANCE_LATE_LIMIT', 60)),
+}
+
+# Authentication Backend
+AUTHENTICATION_BACKENDS = [
+    'axes.backends.AxesBackend',
+    'django.contrib.auth.backends.ModelBackend',
+]
+
+# Axes Configuration
+AXES_FAILURE_LIMIT = 5
+AXES_COOLOFF_TIME = 0.5  # Hours
+AXES_LOCKOUT_TEMPLATE = None  # Returns 403 by default for API
+AXES_RESET_ON_SUCCESS = True
+
