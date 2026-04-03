@@ -2,14 +2,34 @@
 Django settings for attendance_system project.
 """
 import os
+import yaml
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+# Load configuration from config.yaml
+CONFIG_FILE = BASE_DIR / 'config.yaml'
+CONFIG = {}
+if CONFIG_FILE.exists():
+    with open(CONFIG_FILE, 'r') as f:
+        try:
+            CONFIG = yaml.safe_load(f)
+        except yaml.YAMLError:
+            pass
+
 # Quick-start development settings - unsuitable for production
-SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'django-insecure-replace-me-in-production')
-DEBUG = os.environ.get('DJANGO_DEBUG', 'False') == 'True'
-ALLOWED_HOSTS = os.environ.get('DJANGO_ALLOWED_HOSTS', '*').split(',')
+SECRET_KEY = os.environ.get(
+    'DJANGO_SECRET_KEY', 
+    CONFIG.get('app', {}).get('secret_key', 'django-insecure-replace-me-in-production')
+)
+DEBUG = os.environ.get(
+    'DJANGO_DEBUG', 
+    str(CONFIG.get('app', {}).get('debug', 'False'))
+) == 'True'
+ALLOWED_HOSTS = os.environ.get(
+    'DJANGO_ALLOWED_HOSTS', 
+    ','.join(CONFIG.get('app', {}).get('allowed_hosts', ['*']))
+).split(',')
 
 # Application definition
 INSTALLED_APPS = [
@@ -68,14 +88,26 @@ ASGI_APPLICATION = 'attendance_system.asgi.application'
 # Database
 DATABASES = {
     'default': {
-        'ENGINE': os.environ.get('DB_ENGINE', 'django.db.backends.postgresql'),
-        'NAME': os.environ.get('DB_NAME', 'attendance_db'),
+        'ENGINE': os.environ.get(
+            'DB_ENGINE', 
+            CONFIG.get('database', {}).get('engine', 'django.db.backends.sqlite3')
+        ),
+        'NAME': os.environ.get(
+            'DB_NAME', 
+            CONFIG.get('database', {}).get('name', 'db.sqlite3') if CONFIG.get('database', {}).get('engine') == 'django.db.backends.sqlite3' else 'attendance_db'
+        ),
         'USER': os.environ.get('DB_USER', 'postgres'),
         'PASSWORD': os.environ.get('DB_PASSWORD', 'postgres'),
         'HOST': os.environ.get('DB_HOST', 'localhost'),
         'PORT': os.environ.get('DB_PORT', '5432'),
     }
 }
+
+# Handle absolute path for sqlite3 name if relative
+if DATABASES['default']['ENGINE'] == 'django.db.backends.sqlite3':
+    db_name = DATABASES['default']['NAME']
+    if not os.path.isabs(db_name):
+        DATABASES['default']['NAME'] = str(BASE_DIR / db_name)
 
 # Channel layer for WebSockets
 CHANNEL_LAYERS = {
